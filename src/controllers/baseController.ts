@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 
-export function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<Response | void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+export function asyncHandler(fn: (_req: Request, _res: Response, _next: NextFunction) => Promise<Response | void>) {
+  return (_req: Request, _res: Response, _next: NextFunction) => {
+    Promise.resolve(fn(_req, _res, _next)).catch(_next);
   };
 }
 

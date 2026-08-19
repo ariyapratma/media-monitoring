@@ -1,21 +1,21 @@
 # Media Monitoring Backend — People & Pixel
 
-Backend service Node.js + TypeScript untuk platform pemantauan media yang mengonsumsi data acara media (mentions) dari berbagai sumber, menormalkannya, dan mengekspos API untuk pencarian dan statistik.
+A Node.js + TypeScript backend service for a media monitoring platform that consumes media event data (mentions) from various sources, normalizes them, and exposes APIs for search and statistics.
 
-## Tumpukan Teknologi
+## Technology Stack
 
 - **Runtime**: Node.js + TypeScript
 - **Framework**: Express.js
-- **Database**: PostgreSQL (diakses via `pg` — tanpa ORM)
-- **Migrasi**: File SQL mentah yang di-commit
+- **Database**: PostgreSQL (accessed via `pg` — no ORM)
+- **Migrations**: Raw SQL files that are committed
 - **Testing**: Jest
 
-## Struktur Proyek
+## Project Structure
 
 ```
 people-pixel-media-monitoring/
 ├── src/
-│   ├── app.ts                 # Konfigurasi Express
+│   ├── app.ts                 # Express configuration
 │   ├── server.ts              # Entry point & listener
 │   ├── config.ts              # Environment variables
 │   ├── db.ts                  # PostgreSQL connection pool
@@ -32,8 +32,8 @@ people-pixel-media-monitoring/
 │   │   ├── searchService.ts
 │   │   └── statsService.ts
 │   └── utils/
-│       ├── normalizer.ts      # Parsing tanggal, strip HTML, bersihkan angka
-│       └── sanitizer.ts       # Proteksi XSS/HTML
+│       ├── normalizer.ts      # Date parsing, HTML stripping, number cleaning
+│       └── sanitizer.ts       # XSS/HTML protection
 ├── migrations/
 │   └── 001_create_mentions_table.sql
 ├── tests/
@@ -47,54 +47,52 @@ people-pixel-media-monitoring/
 └── README.md
 ```
 
-## Cara Menjalankan
+## How to Run
 
-### Prasyarat
+### Prerequisites
 
 - Node.js >= 18
 - PostgreSQL >= 12
-- npm atau yarn
+- npm
 
-### Langkah-langkah
+### Steps
 
 ```bash
-# 1. Clone repository
-git clone <repository-url>
+# 1. Enter the project folder
 cd people-pixel-media-monitoring
 
 # 2. Install dependencies
 npm install
 
-# 3. Salin file environment
-cp .env.example .env
+# 3. Make sure the PostgreSQL database is created
+#    Database: media_monitoring
+#    User: postgres
+#    Password: admin
 
-# 4. Edit .env sesuai dengan kredensial PostgreSQL lokal
-#    Pastikan database media_monitoring sudah dibuat
+# 4. Run the migration to create the table
+psql -U postgres -d media_monitoring -f migrations/001_create_mentions_table.sql
 
-# 5. Jalankan migrasi
-psql -U <username> -d media_monitoring -f migrations/001_create_mentions_table.sql
-
-# 6. Build dan jalankan
+# 5. Run the application
 npm run dev
 ```
 
-Server akan berjalan di `http://localhost:3000`.
+The server will run on `http://localhost:3000`.
 
-### Menjalankan Test
+### Running Tests
 
 ```bash
 npm test
 ```
 
-## Endpoint API
+## API Endpoints
 
 ### 1. Bulk Ingest
 
 **`POST /internal/mentions/bulk`**
 
-Menerima array JSON mention. Setiap record dinormalisasi dan disimpan. Duplikat (berdasarkan `url`) dilewati.
+Accepts an array of mention JSON objects. Each record is normalized and saved. Duplicates (based on `url`) are skipped.
 
-Request body (contoh):
+Request body (example):
 ```json
 [
   {
@@ -118,19 +116,19 @@ Response:
 }
 ```
 
-- **400 Bad Request** — jika request body bukan array, atau record tanpa `url`.
+- **400 Bad Request** — if the request body is not an array, or if a record does not have a `url`.
 
 ### 2. Search
 
 **`GET /internal/mentions`**
 
 Query parameters:
-- `q` (opsional) — pencarian full-text pada `title` dan `content`
-- `source` (opsional) — filter berdasarkan `normalized_source`
-- `from` (opsional) — batas bawah `published_at` (format ISO)
-- `to` (opsional) — batas atas `published_at` (format ISO)
+- `q` (optional) — full-text search on `title` and `content`
+- `source` (optional) — filter by `normalized_source`
+- `from` (optional) — lower bound for `published_at` (ISO format)
+- `to` (optional) — upper bound for `published_at` (ISO format)
 - `page` (default: 1)
-- `limit` (default: 20, maks: 100)
+- `limit` (default: 20, max: 100)
 
 Response:
 ```json
@@ -145,7 +143,7 @@ Response:
 }
 ```
 
-Urutan pengurutan yang stabil: `published_at DESC NULLS LAST, id ASC`.
+Stable sort order: `published_at DESC NULLS LAST, id ASC`.
 
 ### 3. Stats
 
@@ -169,9 +167,9 @@ Response:
 ]
 ```
 
-- **400 Bad Request** — jika `group_by` tidak valid (hanya `source` dan `day` yang diizinkan).
+- **400 Bad Request** — if `group_by` is invalid (only `source` and `day` are allowed).
 
-## Skema Database
+## Database Schema
 
 ```sql
 CREATE TABLE IF NOT EXISTS mentions (
@@ -194,65 +192,65 @@ CREATE INDEX IF NOT EXISTS idx_mentions_normalized_source ON mentions(normalized
 CREATE INDEX IF NOT EXISTS idx_mentions_content_title ON mentions USING GIN (to_tsvector('english', title || ' ' || content));
 ```
 
-### Alasan Desain
+### Design Rationale
 
-- **`url` sebagai kunci unik**: URL adalah identifier kanonik untuk satu konten media. Dengan `UNIQUE` constraint dan `ON CONFLICT DO NOTHING`, sistem menjamin idempotenansi. Pipeline yang gagal dan di-retry tidak akan menghasilkan duplikat.
-- **`normalized_source`**: Disimpan dalam format `LOWER(TRIM())` agar filtering berdasarkan sumber konsisten, meskipun data mentah memiliki casing berbeda (`"thestar"`, `"TWITTER"`, `"malaysiakini "`).
-- **`published_at TIMESTAMPTZ`**: Menangani rentang tanggal yang akurat dan mendukung zona waktu. Data tanpa tanggal disimpan sebagai `NULL`.
-- **`engagement INTEGER`**: Menghilangkan koma dan mengonversi ke bilangan bulat agar perhitungan statistik valid.
-- **Index**:
-  - `idx_mentions_published_at` — mempercepat filter rentang tanggal dan pengurutan.
-  - `idx_mentions_normalized_source` — mempercepat filter berdasarkan sumber.
-  - GIN index pada `to_tsvector('english', title || ' ' || content)` — mempercepat pencarian full-text.
+- **`url` as unique key**: URL is the canonical identifier for a single piece of media content. With the `UNIQUE` constraint and `ON CONFLICT DO NOTHING`, the system guarantees idempotency. A failed pipeline that is retried will not produce duplicates.
+- **`normalized_source`**: Stored in `LOWER(TRIM())` format so filtering by source is consistent, even when raw data has different casing (`"thestar"`, `"TWITTER"`, `"malaysiakini "`).
+- **`published_at TIMESTAMPTZ`**: Handles accurate date ranges and supports time zones. Data without a date is stored as `NULL`.
+- **`engagement INTEGER`**: Removes commas and converts to integer so statistical calculations are valid.
+- **Indexes**:
+  - `idx_mentions_published_at` — speeds up date range filtering and sorting.
+  - `idx_mentions_normalized_source` — speeds up filtering by source.
+  - GIN index on `to_tsvector('english', title || ' ' || content)` — speeds up full-text search.
 
-## Aturan Deteksi Duplikat
+## Duplicate Detection Rules
 
-> **Keputusan**: Sebuah mention dianggap duplikat jika `url`-nya sudah ada di database.
+> **Decision**: A mention is considered a duplicate if its `url` already exists in the database.
 
-**Alasan**:
-- Dalam platform pemantauan media, URL adalah identifier kanonik untuk satu konten.
-- Data `seed_mentions.json` menunjukkan URL yang konsisten untuk artikel yang sama.
-- `ON CONFLICT (url) DO NOTHING` menjamin idempotenansi: posting file yang sama dua kali tidak menghasilkan baris ganda.
-- Jika pipeline menerima record tanpa `url`, sistem menolak insert-nya (return 400) karena tidak bisa menjamin idempotenansi.
+**Reasons**:
+- In a media monitoring platform, URL is the canonical identifier for a single content item.
+- The `seed_mentions.json` data shows consistent URLs for the same article.
+- `ON CONFLICT (url) DO NOTHING` guarantees idempotency: posting the same file twice will not produce duplicate rows.
+- If the pipeline receives a record without a `url`, the system rejects the insert (returns 400) because it cannot guarantee idempotency.
 
-## Normalisasi Data
+## Data Normalization
 
-Setiap record melewati tahap normalisasi sebelum disimpan:
+Each record goes through a normalization stage before being saved:
 
-1. **HTML stripping**: Semua tag HTML dihapus dari `content` dan `title` (misal `<p>`, `<div>`, `<script>`).
-2. **Source normalization**: `LOWER(TRIM(source))` → disimpan di `normalized_source`. Nilai asli tetap disimpan di `source`.
-3. **Date parsing**: Mendukung format berikut:
+1. **HTML stripping**: All HTML tags are removed from `content` and `title` (e.g., `<p>`, `<div>`, `<script>`).
+2. **Source normalization**: `LOWER(TRIM(source))` → stored in `normalized_source`. The original value is kept in `source`.
+3. **Date parsing**: Supports the following formats:
    - ISO 8601 (`2026-08-10T08:15:00Z`)
    - `YYYY-MM-DD HH:MM:SS`
    - `DD/MM/YYYY`
-   - Unix timestamp (angka 10 digit)
-   - Jika null/tidak valid → disimpan `NULL`
-4. **Engagement**: Koma dihapus, dikonversi ke `INTEGER`. Jika null atau non-numeric → disimpan `NULL`.
+   - Unix timestamp (10-digit number)
+   - If null/invalid → stored as `NULL`
+4. **Engagement**: Commas are removed and converted to `INTEGER`. If null or non-numeric → stored as `NULL`.
 
-## Asumsi & Trade-off
+## Assumptions & Trade-offs
 
-- **Asumsi**: URL adalah identifier yang stabil untuk duplikasi. Jika pipeline menerima record tanpa URL, dianggap invalid untuk bulk ingest ini.
-- **Trade-off**: Menggunakan raw SQL (`pg`) alih-alih ORM. Lebih verbose, tetapi transparan dan sesuai requirement "lihat tabel yang didesain".
-- **Trade-off**: Full-text search dengan GIN index PostgreSQL, bukan Elasticsearch. Cukup untuk dataset kecil, tapi tidak scalable ke jutaan record.
-- **Trade-off**: Normalisasi source hanya `LOWER(TRIM())`, tanpa mapping manual variasi ejaan. Jika nanti butuh mapping "thestar" → "The Star", bisa ditambahkan tabel lookup.
+- **Assumption**: URL is a stable identifier for deduplication. If the pipeline receives a record without a URL, it is considered invalid for this bulk ingest.
+- **Trade-off**: Using raw SQL (`pg`) instead of an ORM. More verbose, but transparent and meets the requirement of seeing the designed table.
+- **Trade-off**: Full-text search with PostgreSQL GIN index, not Elasticsearch. Sufficient for small datasets, but not scalable to millions of records.
+- **Trade-off**: Source normalization only uses `LOWER(TRIM())`, without manual spelling variation mapping. If "thestar" → "The Star" mapping is needed later, a lookup table can be added.
 
-## Estimasi Waktu
+## Time Estimate
 
-| Fase | Waktu |
-|------|-------|
-| Setup proyek & konfigurasi | ~1 jam |
-| Skema & normalisasi | ~1.5 jam |
-| Endpoint ingest + idempoten | ~1.5 jam |
-| Endpoint search + stats | ~2 jam |
-| Testing | ~1.5 jam |
-| README & polishing | ~1 jam |
-| **Total** | **~8.5 jam dalam 1–2 sesi** |
+| Phase | Time |
+|-------|------|
+| Project setup & configuration | ~1 hour |
+| Schema & normalization | ~1.5 hours |
+| Ingest endpoint + idempotency | ~1.5 hours |
+| Search & stats endpoints | ~2 hours |
+| Testing | ~1.5 hours |
+| README & polishing | ~1 hour |
+| **Total** | **~8.5 hours in 1–2 sessions** |
 
-## Dengan Satu Minggu Lagi
+## With One More Week
 
-1. Menambahkan validasi schema input dengan `zod`.
-2. Menambahkan soft delete untuk audit trail.
-3. Menambahkan endpoint `/health` dan metrics.
-4. Menambahkan rate limiting pada endpoint publik.
-5. Menambahkan Docker Compose untuk setup database lokal yang mudah.
-6. Migrasi ke connection pooling yang lebih robust.
+1. Add input schema validation with `zod`.
+2. Add soft delete for audit trail.
+3. Add `/health` endpoint and metrics.
+4. Add rate limiting on public endpoints.
+5. Add Docker Compose for easy local database setup.
+6. Migrate to more robust connection pooling.

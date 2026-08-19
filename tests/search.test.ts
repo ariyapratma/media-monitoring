@@ -1,4 +1,3 @@
-import { Request, Response } from 'express';
 import { searchMentions } from '../src/services/searchService';
 import { pool } from '../src/db';
 

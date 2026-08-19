@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { asyncHandler, sendSuccess, sendError } from './baseController';
 import { getStats } from '../services/statsService';
 

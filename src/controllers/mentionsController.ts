@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
-import { asyncHandler, sendSuccess, sendError } from './baseController';
+import { Request, Response } from 'express';
+import { asyncHandler, sendSuccess } from './baseController';
 import { searchMentions } from '../services/searchService';
 
 export const searchMentionsController = asyncHandler(async (req: Request, res: Response) => {

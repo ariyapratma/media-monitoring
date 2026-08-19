@@ -1,5 +1,4 @@
-import { Request, Response } from 'express';
-import { bulkIngest, normalizeMention } from '../src/services/ingestionService';
+import { normalizeMention, bulkIngest } from '../src/services/ingestionService';
 import { pool } from '../src/db';
 
 jest.mock('../src/db', () => ({

@@ -18,7 +18,6 @@ export async function initDb(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('SELECT 1');
-    console.log('Database connection established');
   } finally {
     client.release();
   }

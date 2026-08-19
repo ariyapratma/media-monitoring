@@ -86,7 +86,7 @@ export async function bulkIngest(records: RawMention[]): Promise<{ inserted: num
         } else {
           skipped += 1;
         }
-      } catch (err) {
+      } catch {
         skipped += 1;
       }
     }
