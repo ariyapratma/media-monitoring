@@ -11,8 +11,8 @@ export function createApp(): Express {
   app.use(express.json());
 
   app.use('/internal', internalRouter);
-  app.use('/internal', mentionsRouter);
-  app.use('/internal', statsRouter);
+  app.use('/', mentionsRouter);
+  app.use('/', statsRouter);
 
   app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) => {
     console.error(err.stack);

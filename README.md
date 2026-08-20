@@ -21,8 +21,8 @@ people-pixel-media-monitoring/
 │   ├── db.ts                  # PostgreSQL connection pool
 │   ├── routes/
 │   │   ├── internal.ts        # POST /internal/mentions/bulk
-│   │   ├── mentions.ts        # GET /internal/mentions
-│   │   └── stats.ts           # GET /internal/mentions/stats
+│   │   ├── mentions.ts        # GET /mentions
+│   │   └── stats.ts           # GET /mentions/stats
 │   ├── controllers/
 │   │   ├── internalController.ts
 │   │   ├── mentionsController.ts
@@ -76,13 +76,31 @@ psql -U postgres -d media_monitoring -f migrations/001_create_mentions_table.sql
 npm run dev
 ```
 
-The server will run on `http://localhost:3000`.
+The server will run on `http://localhost:3005`.
 
 ### Running Tests
 
 ```bash
 npm test
 ```
+
+### Seeding Sample Data
+
+```bash
+# With the server running, seed the database with seed_mentions.json
+npm run seed
+```
+
+This posts `seed_mentions.json` to `POST /internal/mentions/bulk`. The endpoint is idempotent, so re-running it will skip duplicates instead of creating them.
+
+## Quick Links
+
+When the server is running on http://localhost:3005:
+
+- **Bulk Ingest**: POST http://localhost:3005/internal/mentions/bulk
+- **Search**: GET http://localhost:3005/mentions?q=ringgit
+- **Stats by Source**: GET http://localhost:3005/mentions/stats?group_by=source
+- **Stats by Day**: GET http://localhost:3005/mentions/stats?group_by=day
 
 ## API Endpoints
 
@@ -120,7 +138,7 @@ Response:
 
 ### 2. Search
 
-**`GET /internal/mentions`**
+**`GET /mentions`**
 
 Query parameters:
 - `q` (optional) — full-text search on `title` and `content`
@@ -147,7 +165,7 @@ Stable sort order: `published_at DESC NULLS LAST, id ASC`.
 
 ### 3. Stats
 
-**`GET /internal/mentions/stats?group_by=source`**
+**`GET /mentions/stats?group_by=source`**
 
 Response:
 ```json
@@ -157,7 +175,7 @@ Response:
 ]
 ```
 
-**`GET /internal/mentions/stats?group_by=day`**
+**`GET /mentions/stats?group_by=day`**
 
 Response:
 ```json
@@ -234,23 +252,3 @@ Each record goes through a normalization stage before being saved:
 - **Trade-off**: Full-text search with PostgreSQL GIN index, not Elasticsearch. Sufficient for small datasets, but not scalable to millions of records.
 - **Trade-off**: Source normalization only uses `LOWER(TRIM())`, without manual spelling variation mapping. If "thestar" → "The Star" mapping is needed later, a lookup table can be added.
 
-## Time Estimate
-
-| Phase | Time |
-|-------|------|
-| Project setup & configuration | ~1 hour |
-| Schema & normalization | ~1.5 hours |
-| Ingest endpoint + idempotency | ~1.5 hours |
-| Search & stats endpoints | ~2 hours |
-| Testing | ~1.5 hours |
-| README & polishing | ~1 hour |
-| **Total** | **~8.5 hours in 1–2 sessions** |
-
-## With One More Week
-
-1. Add input schema validation with `zod`.
-2. Add soft delete for audit trail.
-3. Add `/health` endpoint and metrics.
-4. Add rate limiting on public endpoints.
-5. Add Docker Compose for easy local database setup.
-6. Migrate to more robust connection pooling.
